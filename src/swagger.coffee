@@ -291,6 +291,31 @@ class SwaggerModel
       result[prop.name] = prop.getSampleValue(modelsToIgnore)
     result
 
+  createXMLSample: () ->
+
+    s = []
+    s.push("<"+@name+">")
+    for prop in @properties
+      if (prop.refModel? and prop.isCollection)     
+        s.push("<"+prop.refModel.name+"s>")
+        s.push(prop.refModel.createXMLSample())
+        s.push("</"+prop.refModel.name+"s>")
+      else if (!prop.refModel? and prop.isCollection)
+        s.push("<"+prop.name+">")
+        s.push("<"+prop.refDataType+">")
+        s.push("</"+prop.refDataType+">")
+        s.push("</"+prop.name+">")
+      else if (prop.refModel? and !prop.isCollection)
+        s.push(prop.refModel.createXMLSample())
+      else
+        s.push("<"+prop.name+">")
+        s.push(prop.dataTypeWithRef)
+        if prop.valuesString? then s.push(" (" + prop.valuesString + ")")
+        s.push("</"+prop.name+">")
+
+    s.push("</"+@name+">")
+    s.join('')
+
 class SwaggerModelProperty
   constructor: (@name, obj) ->
     @dataType = obj.type
@@ -354,6 +379,7 @@ class SwaggerOperation
       # set the signature of response class
       @responseClassSignature = @getSignature(@responseClass, @resource.models)
       @responseSampleJSON = @getSampleJSON(@responseClass, @resource.models)
+      @responseSampleXML = @getSampleXML(@responseClass, @resource.models)
 
     @errorResponses = @errorResponses || []
 
@@ -367,6 +393,7 @@ class SwaggerOperation
 
       parameter.signature = @getSignature(parameter.dataType, @resource.models)
       parameter.sampleJSON = @getSampleJSON(parameter.dataType, @resource.models)
+      parameter.sampleXML = @getSampleXML(parameter.dataType, @resource.models)
 
       # Set allowableValue attributes
       if parameter.allowableValues?
@@ -418,7 +445,44 @@ class SwaggerOperation
       # if container is list wrap it
       val = if listType then [val] else val
       JSON.stringify(val, null, 2)
-      
+
+  getSampleXML: (dataType, models) ->
+    # set listType if it exists
+    listType = @isListType(dataType)
+
+    # set flag which says if its primitive or not
+    isPrimitive = if ((listType? and models[listType]) or models[dataType]?) then false else true
+    modelName = if (isPrimitive) then undefined else (if listType? then models[listType].name else models[dataType].name)
+
+    val = if (isPrimitive) then undefined else (if listType? then models[listType].createXMLSample() else models[dataType].createXMLSample())
+    if val
+      @formatXML(val)   
+
+  formatXML: (xml) ->
+    formatted = ""
+    reg = /(>)(<)(\/*)/g;
+    xml = xml.replace(reg, '$1\r\n$2$3')
+    pad = 0
+    for node, i in xml.split('\r\n') 
+      indent = 0
+      if (node.match(/.+<\/\w[^>]*>$/))
+        indent = 0
+      else if (node.match(/^<\/\w/))
+        if (pad != 0)
+          pad -= 1
+      else if (node.match(/^<\w[^>]*[^\/]>.*$/))
+        indent = 1
+      else
+        indent = 0
+        
+      padding = ""
+      for n in [0..pad] when n < pad
+        padding += '  '     
+      formatted += padding + node + "\r\n"
+      pad += indent
+    
+    formatted
+
   do: (args={}, callback, error) =>
     
     # if the args is a function, then it must be a resource without
