@@ -456,7 +456,9 @@ class SwaggerOperation
 
     val = if (isPrimitive) then undefined else (if listType? then models[listType].createXMLSample() else models[dataType].createXMLSample())
     if val
-      @formatXML(val)   
+      if listType?
+        val = "<"+modelName+"s>" + val + "</"+modelName+"s>"
+      @formatXML(val)
 
   formatXML: (xml) ->
     formatted = ""
