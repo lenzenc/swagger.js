@@ -213,7 +213,11 @@ class SwaggerResource
     if models?
       for modelName of models
         if not @models[modelName]?
-          swaggerModel = new SwaggerModel(modelName, models[modelName])
+          extendedModel = models[models[modelName].extends] if models[modelName].extends?
+          if extendedModel?
+            extendedModel.name = models[modelName].extends
+          extendedModelName = models[modelName].extends if extendedModel?
+          swaggerModel = new SwaggerModel(modelName, models[modelName], extendedModel)
           @modelsArray.push swaggerModel
           @models[modelName] = swaggerModel
       for model in @modelsArray
@@ -243,9 +247,13 @@ class SwaggerResource
 
 
 class SwaggerModel
-  constructor: (modelName, obj) ->
+  constructor: (modelName, obj, extendedObj) ->
     @name = if obj.id? then obj.id else modelName
+    @extendedName = extendedObj.name if extendedObj?
     @properties = []
+    if extendedObj?
+      for propertyName of extendedObj.properties
+        @properties.push new SwaggerModelProperty(propertyName, extendedObj.properties[propertyName])
     for propertyName of obj.properties
       @properties.push new SwaggerModelProperty(propertyName, obj.properties[propertyName])
 
@@ -265,7 +273,10 @@ class SwaggerModel
     strong = '<span class="strong">';
     stronger = '<span class="stronger">';
     strongClose = '</span>';
-    classOpen = strong + @name + ' {' + strongClose
+    classOpen = strong + @name
+    if @extendedName?
+      classOpen += ' extends ' + @extendedName
+    classOpen += ' {' + strongClose
     classClose = strong + '}' + strongClose
     returnVal = classOpen + '<div>' + propertiesStr.join(',</div><div>') + '</div>' + classClose
 
