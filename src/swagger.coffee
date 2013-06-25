@@ -257,6 +257,8 @@ class SwaggerModel
     for propertyName of obj.properties
       @properties.push new SwaggerModelProperty(propertyName, obj.properties[propertyName])
 
+    console.log(@getMockSignature())
+
   # Set models referenced  bu this model
   setReferencedModels: (allModels) ->
     for prop in @properties
@@ -275,7 +277,7 @@ class SwaggerModel
     strongClose = '</span>';
     classOpen = strong + @name
     if @extendedName?
-      classOpen += ' extends ' + @extendedName
+      classOpen += ' : ' + @extendedName
     classOpen += ' {' + strongClose
     classClose = strong + '}' + strongClose
     returnVal = classOpen + '<div>' + propertiesStr.join(',</div><div>') + '</div>' + classClose
